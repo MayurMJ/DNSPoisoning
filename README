@@ -1,0 +1,162 @@
+DNSinject
+
+###################################################################################################
+
+HOW TO COMPILE:
+No compilation required, python code
+
+###################################################################################################
+
+OPERATING SYSTEM USED FOR TESTING
+OS: Ubuntu 16.02
+
+###################################################################################################
+
+WORKING EXAMPLES OF COMMANDS TO RUN
+sudo python3 dnsinject.py -i ens33 -h hostnames udp
+
+Example Test with nslookup on Piazza.com 
+
+nslookup www.piazza.com
+Server:		127.0.1.1
+Address:	127.0.1.1#53
+
+Name:	www.piazza.com
+Address: 10.6.6.6
+
+
+As you can see the Address is the IP in hostnamems file machine and not the original one
+
+###################################################################################################
+
+GENERAL DESIGN
+
+The dnsinject.py is the source file where all the code is written. The general design is to parse the
+command line arguments and take decisions accordingly.
+If interface is provided it will listen to the provided interface or else to all interfaces in promiscious
+mode and keep looking for requests to domains provided in the host file if provided, if not provided to 
+every other look up.
+The sniffing is done using scapy and you call a default packet handler for each packet sniffed.
+If the host file is provided  spoofed response is created for the domain with respective IP else a attackers
+IP is sent as the answer.
+
+Code walk through:
+getARgs(): The function which parses Arguments and returns them
+parseFile(): The function used to parsed the hostnames file
+myIp(): The function which returns the IP of the attackers machine
+startSpoofing(): The callback function which sends spoofed packets as response
+
+###################################################################################################
+
+
+
+DNSdetect
+
+###################################################################################################
+
+HOW TO COMPILE:
+No compilation required, python code
+
+###################################################################################################
+
+OPERATING SYSTEM USED FOR TESTING
+OS: Ubuntu 16.02
+
+###################################################################################################
+
+WORKING EXAMPLES OF COMMANDS TO RUN
+sudo python dnsdetect.py -i ens33 -r hw4.pcapng
+
+As you can see the Address is the local IP of my other machine and not the original one
+
+###################################################################################################
+
+GENERAL DESIGN
+
+The dnsdetect.py is the source file where all the code is written. The general design is to parse the
+command line arguments and take decisions accordingly.
+If interface is provided it will listen to the provided interface or else to all interfaces in promiscious
+mode. If the trace file is provided dnsinject attempts will be detected on the trace file in offline mode,
+or else in online mode if not provided.
+
+Packet sniffing is done using Scapy and I have created different functions to handle different tasks.
+validateIP is the function which validates all the IPS present in the rdata field of the DNS packet and
+checks if the IP is valid.
+My system is a TOFU system, where we trust that firsts answer will always be a legitamate one.
+First response with a given TXID is cached in the system and for subsequent responses we look in the cache to check if the
+parameters like IP matches any of the cached IPs then we say that it's a valid response or it's an attack otherwise.
+
+Code walk through:
+getARgs(): The function which parses Arguments and returns them
+validateIp(): The function which returns if the IP is valid:
+referrred from: https://stackoverflow.com/questions/3462784/check-if-a-string-matches-an-ip-address-pattern-in-python
+startDetecting(): The callback function which aintains a cache of responses, checks for intersection of IP sets 
+and detects whether the response is an attack
+printDetails(): The function which outputs the details of the attack on the console
+
+###################################################################################################
+
+FALSE POSITIVES:
+
+In order to avoid False positives I have taken care of threee things:
+
+1.] IP addresses, even if there is a second response with the same TXID I go throgh the cached responses to see
+if any of the IPs just recieved in the current packet are present in the cached Packet, if yes I don't mark it as attack.
+
+2.] If none of the IPs are repeated I check for the MAC address if MAC address matches the cached MAC, not an attack
+
+3.] If none of the IPs are repeated I also check for the TTL if same TTL is found, not an attack
+
+###################################################################################################
+
+OUTPUT
+
+sudo python dnsdetect.py -i ens33 -r hw4.pcapng
+Not an ATTACK
+('19810228-23:43:20.402592', 'DNS poisoning attempt')
+('TXID', '0x908', 'Request', u'www.piazza.com.')
+('Answer1:', ['10.6.6.6'])
+('Answer2:', ['34.230.151.219', '52.45.105.168', '54.172.146.126', '54.236.180.48'])
+('MAC 1:', '00:0c:29:53:5d:84')
+('MAC 2', '00:50:56:ea:93:85')
+('TTL 1:', 64)
+('TTL 2', 128)
+Not an ATTACK
+('19810301-00:11:11.191128', 'DNS poisoning attempt')
+('TXID', '0xe2c5', 'Request', u'www.dell.com.')
+('Answer1:', ['10.6.6.6'])
+('Answer2:', ['104.70.56.91'])
+('MAC 1:', '00:0c:29:53:5d:84')
+('MAC 2', '00:50:56:ea:93:85')
+('TTL 1:', 64)
+('TTL 2', 128)
+Not an ATTACK
+('19810228-23:13:56.541743', 'DNS poisoning attempt')
+('TXID', '0x5313', 'Request', u'www.quora.com.')
+('Answer1:', ['10.5.5.1'])
+('Answer2:', ['192.229.162.211'])
+('MAC 1:', '00:0c:29:53:5d:84')
+('MAC 2', '00:50:56:ea:93:85')
+('TTL 1:', 64)
+('TTL 2', 128)
+Not an ATTACK
+Not an ATTACK
+('19810228-23:22:43.764606', 'DNS poisoning attempt')
+('TXID', '0x692b', 'Request', u'www.cs.stonybrook.edu.')
+('Answer1:', ['10.215.58.4'])
+('Answer2:', ['107.22.178.157'])
+('MAC 1:', '00:0c:29:53:5d:84')
+('MAC 2', '00:50:56:ea:93:85')
+('TTL 1:', 64)
+('TTL 2', 128)
+Not an ATTACK
+Not an ATTACK
+Not an ATTACK
+
+
+###################################################################################################
+
+CITATIONS:
+
+https://stackoverflow.com/questions/3462784/check-if-a-string-matches-an-ip-address-pattern-in-python
+https://theitgeekchronicles.files.wordpress.com/2012/05/scapyguide1.pdf
